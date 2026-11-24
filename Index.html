@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chats</title>
+<style>
+  :root {
+    --ink: #1c2233; --ink-2: #5b6478; --ink-3: #8b93a5;
+    --paper: #f5f2ec; --card: #ffffff; --line: #e3ded4;
+    --accent: #c8502b; --accent-ink: #ffffff; --mine: #fbe3d8; --theirs: #ffffff;
+    --danger: #b3261e; --ok: #2f7d4f;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eceef4; --ink-2: #aab1c2; --ink-3: #7d8598;
+      --paper: #14171f; --card: #1d212c; --line: #2c3140;
+      --accent: #e8734d; --accent-ink: #1a0d07; --mine: #4a2a1e; --theirs: #232836;
+      --danger: #f2877f; --ok: #6fcf97;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font: 15px/1.4 var(--font); color: var(--ink); background: var(--paper); }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  .gate { min-height: 100%; display: grid; place-items: center; padding: 24px; }
+  .gate form { width: 100%; max-width: 340px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; }
+  .gate h1 { margin: 0 0 4px; font-size: 20px; }
+  .gate p { margin: 0 0 16px; color: var(--ink-2); }
+  .gate input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+  .gate button { width: 100%; margin-top: 12px; }
+  .err { color: var(--danger); min-height: 20px; margin-top: 8px; font-size: 13px; }
+
+  .primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 600; }
+  .primary:disabled { opacity: .5; cursor: default; }
+  .ghost { background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; text-decoration: none; color: var(--ink); display: inline-block; }
+  .ghost:hover { border-color: var(--ink-3); }
+
+  .app { height: 100%; display: grid; grid-template-columns: 340px 1fr; }
+  .side { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--card); min-height: 0; }
+  .side-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
+  .side-head h1 { margin: 0; font-size: 20px; }
+  .sos { background: transparent; border: 1px solid var(--danger); color: var(--danger); border-radius: 999px; padding: 5px 12px; font-weight: 600; font-size: 13px; }
+  .tabs { display: flex; gap: 6px; padding: 0 16px 10px; }
+  .tabs button { flex: 1; background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 8px 0; color: var(--ink-2); font-weight: 600; }
+  .tabs button.on { color: var(--accent); border-color: var(--accent); }
+  .search { margin: 0 16px 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+  .list { flex: 1; overflow-y: auto; min-height: 0; }
+  .row { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 10px 16px; background: transparent; border: 0; border-bottom: 1px solid var(--line); }
+  button.row:hover, .row.on { background: var(--paper); }
+  .avatar { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; }
+  .row-main { flex: 1; min-width: 0; }
+  .row-top { display: flex; justify-content: space-between; gap: 8px; }
+  .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub { color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .time { color: var(--ink-3); font-size: 12px; flex: none; }
+  .badge { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+  .hint { padding: 24px 16px; color: var(--ink-2); text-align: center; }
+  .friend-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .friend-actions .ghost { padding: 5px 10px; font-size: 13px; }
+  .rename { width: 100%; padding: 4px 8px; border: 1px solid var(--accent); border-radius: 8px; background: var(--paper); }
+  .side-foot { padding: 8px 16px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; color: var(--ink-3); font-size: 12px; }
+  .side-foot button { background: none; border: 0; color: var(--ink-2); text-decoration: underline; font-size: 12px; }
+
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .empty { margin: auto; color: var(--ink-2); text-align: center; padding: 24px; }
+  .chat { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+  .chat-head { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
+  .chat-head .who { flex: 1; min-width: 0; }
+  .back { display: none; background: none; border: 0; font-size: 26px; line-height: 1; padding: 0 6px 4px 0; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+  .day { align-self: center; margin: 10px 0 6px; padding: 3px 10px; border-radius: 999px; background: var(--line); color: var(--ink-2); font-size: 12px; }
+  .msg { max-width: min(72%, 520px); display: flex; flex-direction: column; align-items: flex-start; }
+  .msg.out { align-self: flex-end; align-items: flex-end; }
+  .bubble { padding: 8px 12px; border-radius: 16px; background: var(--theirs); border: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; cursor: pointer; }
+  .msg.in .bubble { border-bottom-left-radius: 4px; }
+  .msg.out .bubble { background: var(--mine); border-color: transparent; border-bottom-right-radius: 4px; }
+  .bubble img { display: block; max-width: 240px; max-height: 240px; border-radius: 10px; }
+  .meta { color: var(--ink-3); font-size: 11px; margin: 2px 6px 4px; }
+  .meta.bad { color: var(--danger); }
+  .reaction { margin: -8px 8px 2px; padding: 1px 7px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 14px; }
+  .picker { display: flex; gap: 2px; margin: 2px 0 4px; padding: 3px 6px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; }
+  .picker button { background: none; border: 0; font-size: 18px; padding: 2px 5px; border-radius: 50%; }
+  .picker button:hover, .picker button.on { background: var(--paper); }
+
+  .gif-panel { border-top: 1px solid var(--line); background: var(--card); padding: 10px 16px; }
+  .gif-panel input { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+  .gif-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; margin-top: 8px; max-height: 210px; overflow-y: auto; }
+  .gif-grid button { padding: 0; border: 0; background: var(--paper); border-radius: 8px; overflow: hidden; height: 80px; }
+  .gif-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .composer { display: flex; gap: 8px; align-items: flex-end; padding: 10px 16px; background: var(--card); border-top: 1px solid var(--line); }
+  .composer textarea { flex: 1; resize: none; max-height: 120px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+  .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 10px; font-size: 13px; max-width: 90%; }
+
+  .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: grid; place-items: center; padding: 24px; }
+  .modal-card { width: 100%; max-width: 380px; background: var(--card); border-radius: 16px; padding: 22px; }
+  .modal-card h2 { margin: 0 0 8px; font-size: 18px; color: var(--danger); }
+  .modal-card p { margin: 0 0 10px; color: var(--ink-2); }
+  .danger-btn { display: block; text-align: center; background: var(--danger); color: #fff; border-radius: 10px; padding: 12px; font-weight: 700; text-decoration: none; margin: 14px 0 8px; }
+  .modal-card .ghost { width: 100%; }
+
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+    .main { display: none; }
+    body.in-chat .side { display: none; }
+    body.in-chat .main { display: flex; }
+    .back { display: block; }
+    .msg { max-width: 86%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <form id="gateForm">
+    <h1>Chats</h1>
+    <p>Enter the passcode to open your chats.</p>
+    <input id="gateInput" type="password" autocomplete="current-password" placeholder="Passcode" aria-label="Passcode">
+    <div id="gateErr" class="err" role="alert"></div>
+    <button class="primary" type="submit">Open</button>
+  </form>
+</div>
+
+<div id="app" class="app" hidden>
+  <aside class="side">
+    <div class="side-head">
+      <h1>Chats</h1>
+      <button id="sosBtn" class="sos" type="button">Emergency</button>
+    </div>
+    <nav class="tabs">
+      <button type="button" data-view="chats" class="on">Chats</button>
+      <button type="button" data-view="friends">Friends</button>
+    </nav>
+    <input id="search" class="search" type="search" placeholder="Search" aria-label="Search">
+    <div id="list" class="list"></div>
+    <div class="side-foot">
+      <span id="modeNote"></span>
+      <button id="lockBtn" type="button">Lock</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div id="empty" class="empty">Pick a chat to start reading.</div>
+    <section id="chat" class="chat" hidden>
+      <header class="chat-head">
+        <button id="back" class="back" type="button" aria-label="Back to chats">&#8249;</button>
+        <div id="chatAv" class="avatar"></div>
+        <div class="who">
+          <div id="chatName" class="name"></div>
+          <div id="chatPhone" class="sub"></div>
+        </div>
+        <a id="callBtn" class="ghost" target="_top">Call</a>
+      </header>
+      <div id="msgs" class="msgs"></div>
+      <div id="gifPanel" class="gif-panel" hidden>
+        <input id="gifSearch" type="search" placeholder="Search GIFs" aria-label="Search GIFs">
+        <div id="gifGrid" class="gif-grid"></div>
+      </div>
+      <form id="composer" class="composer">
+        <button id="gifBtn" class="ghost" type="button" hidden>GIF</button>
+        <textarea id="input" rows="1" placeholder="Message" aria-label="Message"></textarea>
+        <button id="sendBtn" class="primary" type="submit">Send</button>
+      </form>
+    </section>
+  </main>
+</div>
+
+<div id="sosModal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-labelledby="sosTitle">
+    <h2 id="sosTitle">Emergency</h2>
+    <p><strong>Call 911 from a phone if you can.</strong> Any iPhone can call 911 from its lock screen, with no passcode.</p>
+    <p>This website cannot place the call for you. The button below asks this device to dial 911 itself, which only works on a device that can make phone calls.</p>
+    <a class="danger-btn" href="tel:911" target="_top">Call 911 from this device</a>
+    <button id="sosClose" class="ghost" type="button">Close</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ───────── talking to the script (or demo data when there is none) ─────────
+  var hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+
+  function server(name, args) {
+    return new Promise(function (resolve, reject) {
+      var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+      runner[name].apply(runner, args);
+    });
+  }
+
+  function makeDemo() {
+    var now = Date.now(), min = 60000, n = 0, version = 1;
+    function m(thread, dir, text, ago, extra) {
+      var o = { id: 'd' + (++n), thread: thread, dir: dir, text: text, ts: now - ago * min, status: dir === 'in' ? 'received' : 'sent', reaction: '', kind: 'text' };
+      for (var k in (extra || {})) o[k] = extra[k];
+      return o;
+    }
+    var friends = [
+      { key: 'p:5550100001', phone: '+15550100001', defaultName: 'Maya', name: 'Maya' },
+      { key: 'p:5550100002', phone: '+15550100002', defaultName: 'Leo', name: 'Leo' },
+      { key: 'p:5550100003', phone: '+15550100003', defaultName: 'Coach Dana', name: 'Coach Dana' }
+    ];
+    var messages = [
+      m('p:5550100003', 'in', 'Practice moved to 4:30 tomorrow, field 2.', 1500),
+      m('p:5550100003', 'out', 'Got it, thanks Coach', 1490),
+      m('p:5550100002', 'in', 'did you finish the science thing', 190),
+      m('p:5550100002', 'out', 'almost. the graph is taking forever', 185),
+      m('p:5550100002', 'in', 'same lol', 184, { reaction: '😂' }),
+      m('p:5550100001', 'in', 'are you coming saturday?', 12),
+      m('p:5550100001', 'in', 'we need one more for the team', 11)
+    ];
+    function later(fn, ms) { setTimeout(function () { fn(); version++; }, ms); }
+    return {
+      apiState: function (pass, since) {
+        if (!pass) return Promise.resolve({ ok: false, reason: 'bad_passcode' });
+        if (since === version) return Promise.resolve({ ok: true, changed: false, version: version });
+        return Promise.resolve({ ok: true, changed: true, version: version, friends: JSON.parse(JSON.stringify(friends)), messages: JSON.parse(JSON.stringify(messages)), reactions: ['👍', '❤️', '😂', '😮', '😢', '🙏'], gifs: false });
+      },
+      apiSend: function (pass, thread, text, kind) {
+        var msg = m(thread, 'out', String(text).trim(), 0, { status: 'queued', kind: kind === 'gif' ? 'gif' : 'text' });
+        messages.push(msg); version++;
+        later(function () { msg.status = 'sent'; }, 1500);
+        later(function () { messages.push(m(thread, 'in', 'ok!', 0, { ts: Date.now() })); }, 4500);
+        return Promise.resolve({ ok: true, id: msg.id });
+      },
+      apiReact: function (pass, id, emoji) {
+        messages.forEach(function (x) { if (x.id === id) x.reaction = emoji; });
+        version++;
+        return Promise.resolve({ ok: true });
+      },
+      apiRename: function (pass, thread, name) {
+        friends.forEach(function (f) { if (f.key === thread) f.name = name || f.defaultName; });
+        version++;
+        return Promise.resolve({ ok: true, name: name });
+      },
+      apiGifs: function () { return Promise.resolve({ ok: false, reason: 'gifs_off' }); }
+    };
+  }
+  var demo = hasServer ? null : makeDemo();
+
+  function call(name) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return hasServer ? server(name, args) : demo[name].apply(null, args);
+  }
+
+  // ───────── small helpers ─────────
+  var store = {
+    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { try { window.localStorage.removeItem(k); } catch (e) {} }
+  };
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function isGif(url) { return /^https:\/\/([a-z0-9-]+\.)*giphy\.com\/\S+$/i.test(String(url || '')); }
+  function initials(name) {
+    var parts = String(name || '?').trim().split(/\s+/);
+    var a = parts[0] ? parts[0].charAt(0) : '?';
+    var b = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+    return (a + b).toUpperCase();
+  }
+  var COLORS = ['#b5532f', '#3d6b8c', '#5d7a3a', '#7a5199', '#a0703a', '#2f7d7a', '#a1486b'];
+  function colorFor(key) {
+    var h = 0;
+    for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return COLORS[h % COLORS.length];
+  }
+  function telHref(phone) {
+    var d = String(phone || '').replace(/[^\d+]/g, '');
+    if (d.charAt(0) !== '+') d = (d.length === 10 ? '+1' : '+') + d;
+    return 'tel:' + d;
+  }
+  function sameDay(a, b) { return new Date(a).toDateString() === new Date(b).toDateString(); }
+  function clock(ts) { return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  function dayLabel(ts) {
+    var now = Date.now();
+    if (sameDay(ts, now)) return 'Today';
+    if (sameDay(ts, now - 86400000)) return 'Yesterday';
+    return new Date(ts).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function listTime(ts) { return sameDay(ts, Date.now()) ? clock(ts) : new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' }); }
+
+  var REASONS = {
+    bad_passcode: 'That passcode did not work.',
+    unknown_friend: 'That friend is not on the list in Config.',
+    empty: 'Type a message first.',
+    too_long: 'That is too long. Keep it under 1000 characters.',
+    queue_full: 'Too many messages are waiting to send. Check that the phone is on.',
+    bad_gif: 'That GIF could not be sent.',
+    gifs_off: 'GIF search is not switched on yet.',
+    gif_lookup_failed: 'GIF search is not working right now.',
+    busy: 'Busy for a moment. Try again.'
+  };
+  var toastTimer = null;
+  function toast(text) {
+    var t = $('toast');
+    t.textContent = text;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+  }
+  function explain(reason) { toast(REASONS[reason] || 'Something went wrong. Try again.'); }
+
+  // ───────── state ─────────
+  var S = {
+    pass: store.get('tf_pass') || '',
+    version: null, friends: [], messages: [], reactions: [], gifs: false,
+    cur: null, view: 'chats', query: '', pickerFor: null, renaming: null,
+    read: {}
+  };
+  try { S.read = JSON.parse(store.get('tf_read') || '{}') || {}; } catch (e) { S.read = {}; }
+
+  function friend(key) {
+    for (var i = 0; i < S.friends.length; i++) if (S.friends[i].key === key) return S.friends[i];
+    return null;
+  }
+  function threadMessages(key) {
+    return S.messages.filter(function (m) { return m.thread === key; });
+  }
+  function markRead(key) {
+    var msgs = threadMessages(key);
+    if (!msgs.length) return;
+    S.read[key] = msgs[msgs.length - 1].ts;
+    store.set('tf_read', JSON.stringify(S.read));
+  }
+
+  // ───────── passcode gate ─────────
+  function showGate(message) {
+    $('app').hidden = true;
+    $('gate').hidden = false;
+    $('gateErr').textContent = message || '';
+    $('gateInput').value = '';
+    $('gateInput').focus();
+  }
+  $('gateForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var value = $('gateInput').value;
+    if (!value) { $('gateErr').textContent = 'Enter the passcode first.'; return; }
+    S.pass = value;
+    S.version = null;
+    refresh(true);
+  });
+  $('lockBtn').addEventListener('click', function () {
+    store.del('tf_pass');
+    S.pass = '';
+    S.version = null;
+    showGate('');
+  });
+
+  // ───────── loading and polling ─────────
+  var lastActive = Date.now(), pollTimer = null, loading = false;
+  ['pointerdown', 'keydown'].forEach(function (evt) {
+    document.addEventListener(evt, function () { lastActive = Date.now(); });
+  });
+  function schedule() {
+    clearTimeout(pollTimer);
+    if (document.hidden || !S.pass) return;
+    var delay = Date.now() - lastActive < 120000 ? 4000 : 20000;
+    pollTimer = setTimeout(function () { refresh(false); }, delay);
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(false); });
+
+  function refresh(fromGate) {
+    if (loading) return Promise.resolve();
+    loading = true;
+    return call('apiState', S.pass, S.version).then(function (r) {
+      loading = false;
+      if (!r || !r.ok) {
+        if (r && r.reason === 'bad_passcode') { store.del('tf_pass'); showGate(fromGate ? REASONS.bad_passcode : ''); return; }
+        schedule();
+        return;
+      }
+      store.set('tf_pass', S.pass);
+      $('gate').hidden = true;
+      $('app').hidden = false;
+      if (r.changed) {
+        S.version = r.version;
+        S.friends = r.friends || [];
+        S.messages = r.messages || [];
+        S.reactions = r.reactions || [];
+        S.gifs = !!r.gifs;
+        render();
+      }
+      schedule();
+    }, function () {
+      loading = false;
+      if (fromGate) $('gateErr').textContent = 'Could not reach the server. Try again.';
+      schedule();
+    });
+  }
+
+  // ───────── drawing the side list ─────────
+  function avatar(node, f) {
+    node.textContent = initials(f.name);
+    node.style.background = colorFor(f.key);
+  }
+
+  function renderList() {
+    var list = $('list');
+    list.textContent = '';
+    var q = S.query.trim().toLowerCase();
+    var rows = S.friends.map(function (f) {
+      var msgs = threadMessages(f.key);
+      var last = msgs.length ? msgs[msgs.length - 1] : null;
+      var seen = S.read[f.key] || 0;
+      var unread = msgs.filter(function (m) { return m.dir === 'in' && m.ts > seen; }).length;
+      return { f: f, last: last, unread: f.key === S.cur ? 0 : unread };
+    }).filter(function (r) {
+      return !q || r.f.name.toLowerCase().indexOf(q) !== -1 || String(r.f.phone).indexOf(q) !== -1;
+    });
+
+    if (S.view === 'chats') {
+      rows = rows.filter(function (r) { return r.last; }).sort(function (a, b) { return b.last.ts - a.last.ts; });
+      if (!rows.length) {
+        list.appendChild(el('div', 'hint', q ? 'No chats match.' : 'No messages yet. Open Friends to start a chat.'));
+        return;
+      }
+      rows.forEach(function (r) {
+        var row = el('button', 'row' + (r.f.key === S.cur ? ' on' : ''));
+        row.type = 'button';
+        var av = el('div', 'avatar'); avatar(av, r.f);
+        var main = el('div', 'row-main');
+        var top = el('div', 'row-top');
+        top.appendChild(el('span', 'name', r.f.name));
+        top.appendChild(el('span', 'time', listTime(r.last.ts)));
+        var preview = r.last.kind === 'gif' ? 'GIF' : r.last.text;
+        main.appendChild(top);
+        main.appendChild(el('div', 'sub', (r.last.dir === 'out' ? 'You: ' : '') + preview));
+        row.appendChild(av);
+        row.appendChild(main);
+        if (r.unread) row.appendChild(el('span', 'badge', String(r.unread)));
+        row.addEventListener('click', function () { openChat(r.f.key); });
+        list.appendChild(row);
+      });
+      return;
+    }
+
+    // Friends view
+    rows.sort(function (a, b) { return a.f.name.localeCompare(b.f.name); });
+    if (!rows.length) {
+      list.appendChild(el('div', 'hint', q ? 'No friends match.' : 'No friends yet. Add numbers to SENDERS in Config.'));
+      return;
+    }
+    rows.forEach(function (r) {
+      var row = el('div', 'row');
+      var av = el('div', 'avatar'); avatar(av, r.f);
+      var main = el('div', 'row-main');
+      if (S.renaming === r.f.key) {
+        var input = el('input', 'rename');
+        input.value = r.f.name;
+        input.maxLength = 40;
+        input.setAttribute('aria-label', 'Name for ' + r.f.name);
+        var done = false;
+        var save = function () {
+          if (done) return;
+          done = true;
+          S.renaming = null;
+          var value = input.value.replace(/\s+/g, ' ').trim();
+          if (value === r.f.name) { renderList(); return; }
+          call('apiRename', S.pass, r.f.key, value).then(function (res) {
+            if (!res.ok) explain(res.reason);
+            S.version = null;
+            refresh(false);
+          }, function () { explain(); renderList(); });
+        };
+        input.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+          if (ev.key === 'Escape') { done = true; S.renaming = null; renderList(); }
+        });
+        input.addEventListener('blur', save);
+        main.appendChild(input);
+        setTimeout(function () { input.focus(); input.select(); }, 0);
+      } else {
+        main.appendChild(el('div', 'name', r.f.name));
+        main.appendChild(el('div', 'sub', r.f.phone));
+      }
+      var actions = el('div', 'friend-actions');
+      var rename = el('button', 'ghost', 'Rename'); rename.type = 'button';
+      rename.addEventListener('click', function () { S.renaming = r.f.key; renderList(); });
+      var chat = el('button', 'ghost', 'Chat'); chat.type = 'button';
+      chat.addEventListener('click', function () { openChat(r.f.key); });
+      var callLink = el('a', 'ghost', 'Call');
+      callLink.href = telHref(r.f.phone);
+      callLink.target = '_top';
+      actions.appendChild(rename);
+      actions.appendChild(chat);
+      actions.appendChild(callLink);
+      main.appendChild(actions);
+      row.appendChild(av);
+      row.appendChild(main);
+      list.appendChild(row);
+    });
+  }
+
+  // ───────── drawing the open chat ─────────
+  var STATUS = { queued: 'Sending…', sent: 'Sent', expired: 'Not sent: the phone was offline too long', failed: 'Not sent' };
+
+  function renderChat(forceBottom) {
+    var f = S.cur ? friend(S.cur) : null;
+    $('empty').hidden = !!f;
+    $('chat').hidden = !f;
+    if (!f) return;
+
+    avatar($('chatAv'), f);
+    $('chatName').textContent = f.name;
+    $('chatPhone').textContent = f.phone;
+    $('callBtn').href = telHref(f.phone);
+    $('gifBtn').hidden = !S.gifs;
+
+    var box = $('msgs');
+    var nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    box.textContent = '';
+    var msgs = threadMessages(f.key);
+    if (!msgs.length) box.appendChild(el('div', 'hint', 'No messages yet. Say hi.'));
+
+    var prev = null;
+    msgs.forEach(function (m) {
+      if (!prev || !sameDay(prev.ts, m.ts)) box.appendChild(el('div', 'day', dayLabel(m.ts)));
+      prev = m;
+      var wrap = el('div', 'msg ' + (m.dir === 'out' ? 'out' : 'in'));
+      var bubble = el('button', 'bubble');
+      bubble.type = 'button';
+      bubble.setAttribute('aria-label', 'React to message');
+      if (m.kind === 'gif' && isGif(m.text)) {
+        var img = el('img');
+        img.src = m.text;
+        img.alt = 'GIF';
+        img.loading = 'lazy';
+        bubble.appendChild(img);
+      } else {
+        bubble.textContent = m.text;
+      }
+      bubble.addEventListener('click', function () {
+        S.pickerFor = S.pickerFor === m.id ? null : m.id;
+        renderChat(false);
+      });
+      wrap.appendChild(bubble);
+      if (m.reaction) wrap.appendChild(el('div', 'reaction', m.reaction));
+      if (S.pickerFor === m.id) {
+        var picker = el('div', 'picker');
+        S.reactions.forEach(function (emoji) {
+          var b = el('button', m.reaction === emoji ? 'on' : '', emoji);
+          b.type = 'button';
+          b.addEventListener('click', function () {
+            S.pickerFor = null;
+            var next = m.reaction === emoji ? '' : emoji;
+            m.reaction = next;
+            renderChat(false);
+            call('apiReact', S.pass, m.id, next).then(function (res) {
+              if (!res.ok) explain(res.reason);
+              S.version = null;
+              refresh(false);
+            }, function () { explain(); });
+          });
+          picker.appendChild(b);
+        });
+        wrap.appendChild(picker);
+      }
+      var bad = m.status === 'expired' || m.status === 'failed';
+      var label = clock(m.ts) + (m.dir === 'out' && STATUS[m.status] ? ' · ' + STATUS[m.status] : '');
+      wrap.appendChild(el('div', 'meta' + (bad ? ' bad' : ''), label));
+      box.appendChild(wrap);
+    });
+
+    if (forceBottom || nearBottom) box.scrollTop = box.scrollHeight;
+    markRead(f.key);
+  }
+
+  function render() {
+    if (S.cur && !friend(S.cur)) S.cur = null;
+    renderList();
+    renderChat(false);
+    $('modeNote').textContent = hasServer ? '' : 'Demo data';
+  }
+
+  function openChat(key) {
+    S.cur = key;
+    S.pickerFor = null;
+    $('gifPanel').hidden = true;
+    document.body.classList.add('in-chat');
+    markRead(key);
+    renderList();
+    renderChat(true);
+    $('input').focus();
+  }
+
+  // ───────── sending ─────────
+  function send(text, kind) {
+    if (!S.cur) return;
+    var btn = $('sendBtn');
+    btn.disabled = true;
+    call('apiSend', S.pass, S.cur, text, kind).then(function (res) {
+      btn.disabled = false;
+      if (!res.ok) { explain(res.reason); return; }
+      if (kind !== 'gif') { $('input').value = ''; grow(); }
+      S.version = null;
+      refresh(false).then(function () { renderChat(true); });
+    }, function () {
+      btn.disabled = false;
+      explain();
+    });
+  }
+  function grow() {
+    var t = $('input');
+    t.style.height = 'auto';
+    t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+  }
+  $('composer').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var text = $('input').value.trim();
+    if (!text) { explain('empty'); return; }
+    send(text, 'text');
+  });
+  $('input').addEventListener('input', grow);
+  $('input').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && !ev.shiftKey) {
+      ev.preventDefault();
+      $('composer').requestSubmit ? $('composer').requestSubmit() : $('sendBtn').click();
+    }
+  });
+
+  // ───────── GIFs ─────────
+  var gifTimer = null;
+  function loadGifs(query) {
+    var grid = $('gifGrid');
+    grid.textContent = '';
+    grid.appendChild(el('div', 'hint', 'Loading…'));
+    call('apiGifs', S.pass, query).then(function (res) {
+      grid.textContent = '';
+      if (!res.ok) { grid.appendChild(el('div', 'hint', REASONS[res.reason] || 'GIF search failed.')); return; }
+      if (!res.gifs.length) { grid.appendChild(el('div', 'hint', 'No GIFs found.')); return; }
+      res.gifs.forEach(function (g) {
+        if (!isGif(g.preview) || !isGif(g.url)) return;
+        var b = el('button');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Send this GIF');
+        var img = el('img');
+        img.src = g.preview;
+        img.alt = '';
+        img.loading = 'lazy';
+        b.appendChild(img);
+        b.addEventListener('click', function () {
+          $('gifPanel').hidden = true;
+          send(g.url, 'gif');
+        });
+        grid.appendChild(b);
+      });
+    }, function () {
+      grid.textContent = '';
+      grid.appendChild(el('div', 'hint', 'GIF search failed.'));
+    });
+  }
+  $('gifBtn').addEventListener('click', function () {
+    var panel = $('gifPanel');
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) { $('gifSearch').value = ''; loadGifs(''); $('gifSearch').focus(); }
+  });
+  $('gifSearch').addEventListener('input', function () {
+    clearTimeout(gifTimer);
+    var q = $('gifSearch').value;
+    gifTimer = setTimeout(function () { loadGifs(q); }, 400);
+  });
+
+  // ───────── navigation, search, emergency ─────────
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+    b.addEventListener('click', function () {
+      S.view = b.getAttribute('data-view');
+      S.renaming = null;
+      Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (x) {
+        x.classList.toggle('on', x === b);
+      });
+      renderList();
+    });
+  });
+  $('search').addEventListener('input', function () { S.query = $('search').value; renderList(); });
+  $('back').addEventListener('click', function () {
+    document.body.classList.remove('in-chat');
+    S.cur = null;
+    render();
+  });
+  $('sosBtn').addEventListener('click', function () { $('sosModal').hidden = false; $('sosClose').focus(); });
+  $('sosClose').addEventListener('click', function () { $('sosModal').hidden = true; });
+  $('sosModal').addEventListener('click', function (ev) { if (ev.target === $('sosModal')) $('sosModal').hidden = true; });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') $('sosModal').hidden = true; });
+
+  // ───────── start ─────────
+  if (!hasServer && !S.pass) S.pass = 'demo';
+  if (S.pass) refresh(false); else showGate('');
+
+  // Small handle for automated checks of the page. Not used by the app itself.
+  window.__chats = { state: S, refresh: refresh };
+})();
+</script>
+</body>
+</html>
